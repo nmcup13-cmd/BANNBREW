@@ -1,26 +1,58 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import Papa from 'papaparse'
 import UploadZone from './components/UploadZone'
 import KpiCard from './components/KpiCard'
 import ChartCard from './components/ChartCard'
 import { DailySalesChart, TopProductsChart, HourlySalesChart } from './components/charts'
 import { parseSalesFile } from './lib/parseSales'
 import { computeMetrics, baht, thaiDate } from './lib/metrics'
-import Lab2Page from './lab2/Lab2Page'
+import Lab2Page from './lab2/Lab2Page.jsx'
 
 export default function App() {
-  const [view, setView] = useState('dashboard') // dashboard | lab2
   const [rows, setRows] = useState([])
   const [errors, setErrors] = useState([])
   const [fileName, setFileName] = useState('')
   const [loading, setLoading] = useState(false)
+  const [branch, setBranch] = useState('all') // 'all' = ทุกสาขา
+  const [view, setView] = useState('dashboard') // 'dashboard' | 'lab2'
+  const [products, setProducts] = useState([])
 
-  const m = useMemo(() => computeMetrics(rows), [rows])
+  // รายชื่อเมนู (product_id → product_name) จาก public/products.csv ใช้ในหน้า Lab 2.2
+  useEffect(() => {
+    fetch('/products.csv')
+      .then((res) => (res.ok ? res.text() : ''))
+      .then((csv) => setProducts(Papa.parse(csv, { header: true, skipEmptyLines: true }).data))
+      .catch(() => setProducts([]))
+  }, [])
+
+  // ภาพรวมทุกสาขา + รายชื่อสาขาสำหรับ dropdown
+  const allMetrics = useMemo(() => computeMetrics(rows), [rows])
+  const branches = allMetrics.byBranch.map((b) => b.branch)
+
+  // กรองแถวตามสาขาที่เลือก แล้วคำนวณ KPI/กราฟจากแถวที่กรองแล้ว
+  const filteredRows = useMemo(
+    () => (branch === 'all' ? rows : rows.filter((r) => (r.branch ?? 'ไม่ระบุ') === branch)),
+    [rows, branch],
+  )
+  const m = useMemo(
+    () => (branch === 'all' ? allMetrics : computeMetrics(filteredRows)),
+    [branch, allMetrics, filteredRows],
+  )
+
+  // แปลงแถวให้เป็นรูปแบบที่ไฟล์ใน src/lab2 ใช้ (product_id, branch, revenue, date, hour)
+  const lab2Rows = useMemo(
+    () => rows.map((r) => ({
+      product_id: r.product, branch: r.branch ?? 'ไม่ระบุ', revenue: r.total, date: r.date, hour: r.hour,
+    })),
+    [rows],
+  )
 
   const load = async (file, name) => {
     setLoading(true)
     try {
       const result = await parseSalesFile(file)
       setRows(result.rows)
+      setBranch('all')
       setErrors(result.errors)
       setFileName(name)
     } catch (err) {
@@ -42,6 +74,8 @@ export default function App() {
 
   const reset = () => {
     setRows([])
+    setBranch('all')
+    setView('dashboard')
     setErrors([])
     setFileName('')
   }
@@ -54,22 +88,19 @@ export default function App() {
             <h1 className="text-xl font-bold sm:text-2xl text-amber-900">บ้านบรู Dashboard</h1>
             <p className="text-sm text-stone-500">สรุปยอดขายจากไฟล์ CSV</p>
           </div>
-          <nav className="flex gap-2 text-sm">
-            <button
-              onClick={() => setView('dashboard')}
-              className={`rounded-lg px-3 py-1.5 ${view === 'dashboard' ? 'bg-amber-900 text-white' : 'border border-stone-300 hover:bg-stone-50'}`}
-            >
-              Dashboard
-            </button>
-            <button
-              onClick={() => setView('lab2')}
-              className={`rounded-lg px-3 py-1.5 ${view === 'lab2' ? 'bg-amber-900 text-white' : 'border border-stone-300 hover:bg-stone-50'}`}
-            >
-              Lab 2.2
-            </button>
-          </nav>
-          {view === 'dashboard' && rows.length > 0 && (
-            <div className="flex min-w-0 items-center gap-3 text-sm">
+          {rows.length > 0 && (
+            <div className="flex min-w-0 flex-wrap items-center gap-3 text-sm">
+              <div className="flex rounded-lg border border-stone-300 p-0.5">
+                {[['dashboard', 'Dashboard'], ['lab2', 'Lab 2.2']].map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setView(key)}
+                    className={`rounded-md px-3 py-1 ${view === key ? 'bg-purple-700 text-white' : 'text-stone-600 hover:bg-stone-50'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
               <span className="truncate text-stone-500">📄 {fileName}</span>
               <button onClick={reset} className="shrink-0 rounded-lg border border-stone-300 px-3 py-1.5 hover:bg-stone-50">
                 อัปโหลดไฟล์ใหม่
@@ -80,13 +111,11 @@ export default function App() {
       </header>
 
       <main className="mx-auto max-w-6xl space-y-4 px-4 py-4 sm:space-y-6 sm:py-6">
-        {view === 'lab2' && <Lab2Page />}
-
-        {view === 'dashboard' && rows.length === 0 && (
+        {rows.length === 0 && (
           <UploadZone onFile={(f) => load(f, f.name)} onSample={loadSample} loading={loading} />
         )}
 
-        {view === 'dashboard' && errors.length > 0 && (
+        {errors.length > 0 && (
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
             <p className="font-semibold">
               ⚠ พบปัญหา {errors.length.toLocaleString('th-TH')} รายการ
@@ -99,13 +128,32 @@ export default function App() {
           </div>
         )}
 
-        {view === 'dashboard' && rows.length > 0 && (
+        {rows.length > 0 && view === 'lab2' && <Lab2Page rows={lab2Rows} products={products} />}
+
+        {rows.length > 0 && view === 'dashboard' && (
           <>
-            <p className="text-sm text-stone-500">
-              ข้อมูลวันที่ {thaiDate(m.dateRange[0], { day: 'numeric', month: 'short', year: 'numeric' })} –{' '}
-              {thaiDate(m.dateRange[1], { day: 'numeric', month: 'short', year: 'numeric' })} ·{' '}
-              {rows.length.toLocaleString('th-TH')} รายการ
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-stone-500">
+                ข้อมูลวันที่ {thaiDate(m.dateRange[0], { day: 'numeric', month: 'short', year: 'numeric' })} –{' '}
+                {thaiDate(m.dateRange[1], { day: 'numeric', month: 'short', year: 'numeric' })} ·{' '}
+                {filteredRows.length.toLocaleString('th-TH')} รายการ
+              </p>
+              {branches.length > 0 && (
+                <label className="flex items-center gap-2 text-sm text-stone-600">
+                  สาขา
+                  <select
+                    value={branch}
+                    onChange={(e) => setBranch(e.target.value)}
+                    className="rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-stone-900 focus:border-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                  >
+                    <option value="all">ทุกสาขา</option>
+                    {branches.map((b) => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </div>
 
             <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
               <KpiCard label="ยอดขายรวม" value={baht(m.totalSales)} note={`เฉลี่ย ${baht(m.totalSales / m.daily.length)} / วัน`} />
@@ -122,9 +170,9 @@ export default function App() {
               <ChartCard title="เมนูขายดี 8 อันดับ" subtitle="เรียงตามยอดขาย (บาท)">
                 <TopProductsChart data={m.topProducts} />
               </ChartCard>
-              {m.byBranch.length > 0 && (
-                <ChartCard title="ยอดขายตามสาขา" subtitle="บาท">
-                  <TopProductsChart data={m.byBranch} dataKey="branch" />
+              {allMetrics.byBranch.length > 0 && (
+                <ChartCard title="ยอดขายตามสาขา" subtitle="ทุกสาขาเทียบกัน (บาท) · ไม่ขึ้นกับตัวกรอง">
+                  <TopProductsChart data={allMetrics.byBranch} dataKey="branch" />
                 </ChartCard>
               )}
               {m.hourly.length > 0 && (

@@ -1,52 +1,5 @@
-import { useEffect, useState } from "react";
-import Papa from "papaparse";
 import * as Bad from "./BadCharts.jsx";
 import * as Fixed from "./FixedCharts.jsx";
-
-// โหลดข้อมูลของ Lab 2.2 เอง จาก public/sales_clean.csv แล้วแปลงเป็น { date, branch, product_id, revenue }
-function useLab2Rows() {
-  const [rows, setRows] = useState([]);
-  const [status, setStatus] = useState("loading"); // loading | ready | error
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/sales_clean.csv")
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.text();
-      })
-      .then(
-        (text) =>
-          new Promise((resolve) => {
-            Papa.parse(text, {
-              header: true,
-              skipEmptyLines: "greedy",
-              transformHeader: (h) => h.replace(/^﻿/, "").trim().toLowerCase(),
-              complete: ({ data }) => resolve(data),
-            });
-          })
-      )
-      .then((data) => {
-        if (cancelled) return;
-        const parsed = data
-          .map((r) => ({
-            date: String(r.datetime ?? "").slice(0, 10),
-            branch: r.branch,
-            product_id: r.product_id,
-            revenue: Number(r.qty) * Number(r.unit_price),
-          }))
-          .filter((r) => r.date && r.branch && r.product_id && Number.isFinite(r.revenue));
-        setRows(parsed);
-        setStatus("ready");
-      })
-      .catch(() => !cancelled && setStatus("error"));
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return { rows, status };
-}
 
 // โจทย์ของแต่ละกราฟ: คำถามทางธุรกิจที่กราฟต้องตอบ + คำถามนำให้วิจารณ์
 const CASES = [
@@ -88,13 +41,7 @@ function Placeholder({ n }) {
   );
 }
 
-export default function Lab2Page() {
-  const { rows, status } = useLab2Rows();
-  const products = [];
-
-  if (status === "loading") return <p className="text-stone-500">กำลังโหลดข้อมูล…</p>;
-  if (status === "error") return <p className="text-red-700">โหลด /sales_clean.csv ไม่สำเร็จ</p>;
-
+export default function Lab2Page({ rows, products }) {
   return (
     <div>
       <header className="mb-6">

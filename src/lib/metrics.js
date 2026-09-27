@@ -72,15 +72,6 @@ export function computeMetrics(rows) {
   }
 }
 
-// ยอดขายรายวัน สำหรับ Lab 2.2 · รับ rows ที่มี { date, revenue }
-export function dailyRevenue(rows) {
-  const map = new Map()
-  for (const r of rows) map.set(r.date, (map.get(r.date) ?? 0) + r.revenue)
-  return [...map.entries()]
-    .map(([date, revenue]) => ({ date, revenue }))
-    .sort((a, b) => a.date.localeCompare(b.date))
-}
-
 export const baht = (n) =>
   '฿' + Math.round(n).toLocaleString('th-TH')
 
@@ -94,3 +85,12 @@ export const compactBaht = (n) =>
 
 export const thaiDate = (iso, opts = SHORT_DATE) =>
   new Date(iso + 'T00:00:00').toLocaleDateString('th-TH', opts)
+
+// ยอดขายรายวันสำหรับ Lab 2.2 (rows แบบ lab2: มี date, revenue) → [{ date, revenue }] เรียงตามวันที่
+export function dailyRevenue(rows) {
+  const map = new Map()
+  for (const r of rows) map.set(r.date, (map.get(r.date) ?? 0) + r.revenue)
+  return [...map.entries()]
+    .map(([date, revenue]) => ({ date, revenue }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+}
