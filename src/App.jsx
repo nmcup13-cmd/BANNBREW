@@ -5,8 +5,10 @@ import ChartCard from './components/ChartCard'
 import { DailySalesChart, TopProductsChart, HourlySalesChart } from './components/charts'
 import { parseSalesFile } from './lib/parseSales'
 import { computeMetrics, baht, thaiDate } from './lib/metrics'
+import Lab2Page from './lab2/Lab2Page'
 
 export default function App() {
+  const [view, setView] = useState('dashboard') // dashboard | lab2
   const [rows, setRows] = useState([])
   const [errors, setErrors] = useState([])
   const [fileName, setFileName] = useState('')
@@ -52,7 +54,21 @@ export default function App() {
             <h1 className="text-xl font-bold sm:text-2xl text-amber-900">บ้านบรู Dashboard</h1>
             <p className="text-sm text-stone-500">สรุปยอดขายจากไฟล์ CSV</p>
           </div>
-          {rows.length > 0 && (
+          <nav className="flex gap-2 text-sm">
+            <button
+              onClick={() => setView('dashboard')}
+              className={`rounded-lg px-3 py-1.5 ${view === 'dashboard' ? 'bg-amber-900 text-white' : 'border border-stone-300 hover:bg-stone-50'}`}
+            >
+              Dashboard
+            </button>
+            <button
+              onClick={() => setView('lab2')}
+              className={`rounded-lg px-3 py-1.5 ${view === 'lab2' ? 'bg-amber-900 text-white' : 'border border-stone-300 hover:bg-stone-50'}`}
+            >
+              Lab 2.2
+            </button>
+          </nav>
+          {view === 'dashboard' && rows.length > 0 && (
             <div className="flex min-w-0 items-center gap-3 text-sm">
               <span className="truncate text-stone-500">📄 {fileName}</span>
               <button onClick={reset} className="shrink-0 rounded-lg border border-stone-300 px-3 py-1.5 hover:bg-stone-50">
@@ -64,11 +80,13 @@ export default function App() {
       </header>
 
       <main className="mx-auto max-w-6xl space-y-4 px-4 py-4 sm:space-y-6 sm:py-6">
-        {rows.length === 0 && (
+        {view === 'lab2' && <Lab2Page />}
+
+        {view === 'dashboard' && rows.length === 0 && (
           <UploadZone onFile={(f) => load(f, f.name)} onSample={loadSample} loading={loading} />
         )}
 
-        {errors.length > 0 && (
+        {view === 'dashboard' && errors.length > 0 && (
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
             <p className="font-semibold">
               ⚠ พบปัญหา {errors.length.toLocaleString('th-TH')} รายการ
@@ -81,7 +99,7 @@ export default function App() {
           </div>
         )}
 
-        {rows.length > 0 && (
+        {view === 'dashboard' && rows.length > 0 && (
           <>
             <p className="text-sm text-stone-500">
               ข้อมูลวันที่ {thaiDate(m.dateRange[0], { day: 'numeric', month: 'short', year: 'numeric' })} –{' '}
