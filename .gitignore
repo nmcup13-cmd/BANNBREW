@@ -38,6 +38,5 @@ firestore-debug.log
 # ไฟล์ zip ที่อาจมี .env หรือ key อยู่ข้างใน
 *.zip
 
-# repo ที่ clone ซ้อนอยู่ และสำเนาซ้ำของชุดไฟล์อาจารย์ (ห้าม commit)
-BANNBREW/
+# สำเนาซ้ำของชุดไฟล์อาจารย์ (ห้าม commit)
 lab3-student-pack/lab3-student-pack/
