@@ -1,0 +1,13 @@
+node_modules
+dist
+.env
+.env.local
+.DS_Store
+
+# Firebase (Lab 3)
+.env
+.env.local
+secrets/
+import-summary.json
+.firebase/
+*-firebase-adminsdk-*.json
