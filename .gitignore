@@ -22,3 +22,18 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Firebase (Lab 3) · ห้ามขึ้น GitHub เด็ดขาด
+.env
+.env.*
+!.env.example
+**/secrets/
+*service*account*.json
+*-firebase-adminsdk-*.json
+import-summary.json
+.firebase/
+firebase-debug*.log
+firestore-debug.log
+
+# ไฟล์ zip ที่อาจมี .env หรือ key อยู่ข้างใน
+*.zip

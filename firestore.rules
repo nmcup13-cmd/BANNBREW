@@ -1,0 +1,80 @@
+rules_version = '2';
+
+// Lab 3.3B · Security Rules ของบ้านบรู
+// หลักการ: ปิดทุกอย่างไว้ก่อน แล้วเปิดเฉพาะที่หน้าเว็บต้องใช้
+// - อ่านได้ทุกอย่างเมื่อล็อกอิน
+// - เขียนได้อย่างเดียวคือ "สร้างยอดขายใหม่" และเอกสารต้องหน้าตาเหมือนที่ buildSale() ใน src/lab3/saleModel.js สร้าง
+// - เมนู/สาขา และการนำเข้าข้อมูล ทำผ่าน admin script (scripts/seed.mjs) ซึ่งไม่ผ่าน rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ล็อกอินแล้วหรือยัง (request.auth จะเป็น null ถ้ายังไม่ล็อกอิน)
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // ตรวจเอกสารยอดขายใหม่ทีละเงื่อนไข
+    function validNewSale() {
+      let d = request.resource.data;
+      let fields = ['order_id', 'datetime', 'date', 'hour', 'branch', 'product_id', 'qty', 'unit_price',
+                    'revenue', 'customer_id', 'payment_method', 'channel', 'source', 'created_by', 'created_at'];
+      let productPath = /databases/$(database)/documents/products/$(d.product_id);
+      return
+        // ฟิลด์ต้องครบทุกตัว และห้ามมีฟิลด์เกิน (กันแอบเพิ่ม เช่น discount)
+        d.keys().hasAll(fields) && d.keys().hasOnly(fields)
+
+        // ต้องมาจากหน้าเว็บ และผู้บันทึกต้องเป็นคนที่ล็อกอินอยู่จริง (กันปลอมตัวเป็นคนอื่น)
+        && d.source == 'web'
+        && d.created_by == request.auth.uid
+
+        // เวลาบันทึกต้องเป็นเวลาเซิร์ฟเวอร์ (serverTimestamp()) ห้ามใส่เวลาเอง
+        && d.created_at == request.time
+
+        // สาขาและวิธีชำระเงินต้องเป็นค่าที่ร้านมีจริงเท่านั้น
+        && d.branch in ['สยาม', 'สีลม', 'อารีย์', 'บางนา', 'มหาวิทยาลัย']
+        && d.payment_method in ['QR พร้อมเพย์', 'บัตรเครดิต', 'เงินสด', 'LINE MAN', 'Grab']
+        && d.channel in ['หน้าร้าน', 'เดลิเวอรี']
+
+        // จำนวนเป็นจำนวนเต็ม 1–20 (กันติดลบ/ทศนิยม) และชั่วโมงเป็นจำนวนเต็ม 0–23
+        && d.qty is int && d.qty >= 1 && d.qty <= 20
+        && d.hour is int && d.hour >= 0 && d.hour <= 23
+
+        // ราคาต่อหน่วยต้องตรงกับราคาในเมนูจริง (อ่านจาก products ด้วย get) กันแก้ราคาเอง
+        && d.order_id is string && d.product_id is string
+        && exists(productPath)
+        && d.unit_price == get(productPath).data.price
+
+        // ยอดรวมต้องเท่ากับ จำนวน × ราคา
+        && d.revenue == d.qty * d.unit_price
+
+        // รูปแบบวันที่และเวลาไทยแบบเดียวกับข้อมูลที่ import
+        && d.date is string && d.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && d.datetime is string && d.datetime.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[+]07:00$')
+
+        // รหัสสมาชิกไม่บังคับ: เป็น null หรือ C ตามด้วยเลข 5 หลัก
+        && (d.customer_id == null || (d.customer_id is string && d.customer_id.matches('^C[0-9]{5}$')));
+    }
+
+    // เมนูและสาขา: อ่านได้เมื่อล็อกอิน แก้จากหน้าเว็บไม่ได้
+    match /products/{productId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+    match /branches/{branchId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // ยอดขาย: อ่านได้เมื่อล็อกอิน สร้างได้ถ้าผ่านทุกเงื่อนไข แก้ไขและลบไม่ได้
+    match /sales/{saleId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && validNewSale();
+      allow update, delete: if false;
+    }
+
+    // collection อื่นทั้งหมด: ปิด
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

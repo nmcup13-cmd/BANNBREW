@@ -9,6 +9,10 @@ import { computeMetrics, baht, thaiDate } from './lib/metrics'
 import Lab2Page from './lab2/Lab2Page.jsx'
 import CustomersPage from './customers/CustomersPage.jsx'
 import CustomerLabPage from './customerLab/CustomerLabPage.jsx'
+import LiveTab from './lab3/LiveTab.jsx'
+import RulesTester from './lab3/RulesTester.jsx'
+import SetupGuide from './lab3/SetupGuide.jsx'
+import { isConfigured } from './lab3/firebase.js'
 
 export default function App() {
   const [rows, setRows] = useState([])
@@ -16,7 +20,7 @@ export default function App() {
   const [fileName, setFileName] = useState('')
   const [loading, setLoading] = useState(false)
   const [branch, setBranch] = useState('all') // 'all' = ทุกสาขา
-  const [view, setView] = useState('dashboard') // 'dashboard' | 'customers' | 'lab2' | 'customerLab'
+  const [view, setView] = useState('dashboard') // 'dashboard' | 'customers' | 'lab2' | 'customerLab' | 'live' | 'rules'
   const [products, setProducts] = useState([])
 
   // รายชื่อเมนู (product_id → product_name) จาก public/products.csv ใช้ในหน้า Lab 2.2
@@ -91,7 +95,7 @@ export default function App() {
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-3 text-sm">
             <nav className="flex flex-wrap rounded-lg border border-stone-300 p-0.5">
-              {[['dashboard', 'Dashboard'], ['customers', 'ลูกค้า'], ['lab2', 'Lab 2.2'], ['customerLab', 'Lab ลูกค้า']].map(([key, label]) => (
+              {[['dashboard', 'Dashboard'], ['customers', 'ลูกค้า'], ['lab2', 'Lab 2.2'], ['customerLab', 'Lab ลูกค้า'], ['live', 'สด · Firestore'], ['rules', 'ทดสอบ Rules']].map(([key, label]) => (
                 <button
                   key={key}
                   onClick={() => setView(key)}
@@ -116,6 +120,8 @@ export default function App() {
       <main className="mx-auto max-w-6xl space-y-4 px-4 py-4 sm:space-y-6 sm:py-6">
         {view === 'customers' && <CustomersPage />}
         {view === 'customerLab' && <CustomerLabPage />}
+        {view === 'live' && (isConfigured ? <LiveTab /> : <SetupGuide />)}
+        {view === 'rules' && (isConfigured ? <RulesTester /> : <SetupGuide />)}
 
         {(view === 'dashboard' || view === 'lab2') && rows.length === 0 && (
           <UploadZone onFile={(f) => load(f, f.name)} onSample={loadSample} loading={loading} />
