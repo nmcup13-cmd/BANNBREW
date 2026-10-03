@@ -7,6 +7,8 @@ import { DailySalesChart, TopProductsChart, HourlySalesChart } from './component
 import { parseSalesFile } from './lib/parseSales'
 import { computeMetrics, baht, thaiDate } from './lib/metrics'
 import Lab2Page from './lab2/Lab2Page.jsx'
+import CustomersPage from './customers/CustomersPage.jsx'
+import CustomerLabPage from './customerLab/CustomerLabPage.jsx'
 
 export default function App() {
   const [rows, setRows] = useState([])
@@ -14,7 +16,7 @@ export default function App() {
   const [fileName, setFileName] = useState('')
   const [loading, setLoading] = useState(false)
   const [branch, setBranch] = useState('all') // 'all' = ทุกสาขา
-  const [view, setView] = useState('dashboard') // 'dashboard' | 'lab2'
+  const [view, setView] = useState('dashboard') // 'dashboard' | 'customers' | 'lab2' | 'customerLab'
   const [products, setProducts] = useState([])
 
   // รายชื่อเมนู (product_id → product_name) จาก public/products.csv ใช้ในหน้า Lab 2.2
@@ -75,7 +77,6 @@ export default function App() {
   const reset = () => {
     setRows([])
     setBranch('all')
-    setView('dashboard')
     setErrors([])
     setFileName('')
   }
@@ -88,34 +89,39 @@ export default function App() {
             <h1 className="text-xl font-bold sm:text-2xl text-amber-900">บ้านบรู Dashboard</h1>
             <p className="text-sm text-stone-500">สรุปยอดขายจากไฟล์ CSV</p>
           </div>
-          {rows.length > 0 && (
-            <div className="flex min-w-0 flex-wrap items-center gap-3 text-sm">
-              <div className="flex rounded-lg border border-stone-300 p-0.5">
-                {[['dashboard', 'Dashboard'], ['lab2', 'Lab 2.2']].map(([key, label]) => (
-                  <button
-                    key={key}
-                    onClick={() => setView(key)}
-                    className={`rounded-md px-3 py-1 ${view === key ? 'bg-purple-700 text-white' : 'text-stone-600 hover:bg-stone-50'}`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <span className="truncate text-stone-500">📄 {fileName}</span>
-              <button onClick={reset} className="shrink-0 rounded-lg border border-stone-300 px-3 py-1.5 hover:bg-stone-50">
-                อัปโหลดไฟล์ใหม่
-              </button>
-            </div>
-          )}
+          <div className="flex min-w-0 flex-wrap items-center gap-3 text-sm">
+            <nav className="flex flex-wrap rounded-lg border border-stone-300 p-0.5">
+              {[['dashboard', 'Dashboard'], ['customers', 'ลูกค้า'], ['lab2', 'Lab 2.2'], ['customerLab', 'Lab ลูกค้า']].map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setView(key)}
+                  className={`rounded-md px-3 py-1 ${view === key ? 'bg-purple-700 text-white' : 'text-stone-600 hover:bg-stone-50'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </nav>
+            {rows.length > 0 && (view === 'dashboard' || view === 'lab2') && (
+              <>
+                <span className="truncate text-stone-500">📄 {fileName}</span>
+                <button onClick={reset} className="shrink-0 rounded-lg border border-stone-300 px-3 py-1.5 hover:bg-stone-50">
+                  อัปโหลดไฟล์ใหม่
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl space-y-4 px-4 py-4 sm:space-y-6 sm:py-6">
-        {rows.length === 0 && (
+        {view === 'customers' && <CustomersPage />}
+        {view === 'customerLab' && <CustomerLabPage />}
+
+        {(view === 'dashboard' || view === 'lab2') && rows.length === 0 && (
           <UploadZone onFile={(f) => load(f, f.name)} onSample={loadSample} loading={loading} />
         )}
 
-        {errors.length > 0 && (
+        {(view === 'dashboard' || view === 'lab2') && errors.length > 0 && (
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
             <p className="font-semibold">
               ⚠ พบปัญหา {errors.length.toLocaleString('th-TH')} รายการ
