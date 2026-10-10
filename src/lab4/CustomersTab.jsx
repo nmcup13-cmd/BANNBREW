@@ -151,6 +151,71 @@ function AbcCard({ abc }) {
   );
 }
 
+// ---------------- Lab 4.1B · รายชื่อลูกค้าในกลุ่มที่เลือก ----------------
+const CSV_COLUMNS = ["id", "segment", "R", "F", "M", "r", "f", "m"];
+
+function downloadCsv(segment, members) {
+  const lines = [CSV_COLUMNS.join(","), ...members.map((c) => CSV_COLUMNS.map((k) => c[k]).join(","))];
+  // BOM (﻿) นำหน้า ให้ Excel รู้ว่าเป็น UTF-8 และแสดงภาษาไทยได้
+  const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement("a"), { href: url, download: `rfm-${segment.replace(/\s+/g, "-")}.csv` });
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function SegmentCustomers({ rfm, segment, onClose }) {
+  if (rfm.error || !segment) return null;
+  const members = rfm.customers.filter((c) => c.segment === segment).sort((a, b) => b.M - a.M);
+  const seg = SEG_TH[segment];
+  return (
+    <Card
+      title={`${seg.th} · ${members.length.toLocaleString()} คน`}
+      sub={`${segment} · เรียงตามยอดซื้อรวม แสดง 15 คนแรก · ${seg.action}`}
+      right={
+        <div className="flex gap-2">
+          <button onClick={() => downloadCsv(segment, members)}
+                  className="rounded-lg bg-stone-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-700">
+            ดาวน์โหลด CSV
+          </button>
+          <button onClick={onClose} aria-label="ปิด"
+                  className="rounded-lg px-3 py-1.5 text-sm text-stone-500 ring-1 ring-stone-300 hover:bg-stone-100">
+            ปิด ✕
+          </button>
+        </div>
+      }
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[480px] text-sm">
+          <thead className="text-left text-stone-500">
+            <tr>
+              <th className="py-1 font-medium">รหัสลูกค้า</th>
+              <th className="text-right font-medium">ไม่ได้มา (วัน)</th>
+              <th className="text-right font-medium">จำนวนบิล</th>
+              <th className="text-right font-medium">ยอดซื้อรวม</th>
+              <th className="text-right font-medium">คะแนน R-F-M</th>
+            </tr>
+          </thead>
+          <tbody>
+            {members.slice(0, 15).map((c) => (
+              <tr key={c.id} className="border-t border-stone-100">
+                <td className="py-1.5 font-mono">{c.id}</td>
+                <td className="text-right tabular-nums">{c.R.toLocaleString()}</td>
+                <td className="text-right tabular-nums">{c.F.toLocaleString()}</td>
+                <td className="text-right tabular-nums">{fmtBaht(c.M)}</td>
+                <td className="text-right tabular-nums">{c.r}-{c.f}-{c.m}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {members.length > 15 && (
+        <p className="mt-2 text-sm text-stone-500">…และอีก {(members.length - 15).toLocaleString()} คน ดูครบได้ในไฟล์ CSV</p>
+      )}
+    </Card>
+  );
+}
+
 export default function CustomersTab({ source }) {
   const state = useAnalytics(source);
   const [picked, setPicked] = useState(null);
@@ -159,7 +224,7 @@ export default function CustomersTab({ source }) {
       {(d) => (
         <div className="space-y-6">
           <RfmCard rfm={d.rfm} picked={picked} onPick={(s) => setPicked((p) => (p === s ? null : s))} />
-          {/* Lab 4.1B: แสดงรายชื่อลูกค้าในกลุ่มที่คลิก (picked) + ปุ่มดาวน์โหลด CSV */}
+          <SegmentCustomers rfm={d.rfm} segment={picked} onClose={() => setPicked(null)} />
           <CohortCard cohort={d.cohort} />
           <AbcCard abc={d.abc} />
         </div>
