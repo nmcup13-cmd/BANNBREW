@@ -86,6 +86,32 @@ export const compactBaht = (n) =>
 export const thaiDate = (iso, opts = SHORT_DATE) =>
   new Date(iso + 'T00:00:00').toLocaleDateString('th-TH', opts)
 
+// Lab 4 · แปลงแถวดิบจาก sales.csv (ทุกค่าเป็นข้อความ) ให้เป็นรูปแบบที่ src/lib/analytics ใช้
+// (qty, unitPrice, revenue, date, hour) · date/hour ตัดจากข้อความเวลาไทย ไม่ผ่าน new Date()
+export function prepareRows(rows) {
+  return rows
+    .filter((r) => r.order_id)
+    .map((r) => {
+      const qty = Number(r.qty)
+      const unitPrice = Number(r.unit_price)
+      return {
+        ...r,
+        qty,
+        unitPrice,
+        revenue: qty * unitPrice,
+        date: r.datetime.slice(0, 10),
+        hour: Number(r.datetime.slice(11, 13)),
+      }
+    })
+}
+
+// Lab 4 · รูปแบบเงินที่แท็บ ลูกค้า & เมนู / พยากรณ์ & ผิดปกติ ใช้
+export const fmtBaht = (n) =>
+  '฿' + n.toLocaleString('th-TH', { maximumFractionDigits: 0 })
+
+export const fmtShortBaht = (n) =>
+  n >= 1_000_000 ? `฿${(n / 1_000_000).toFixed(1)} ล.` : n >= 1000 ? `฿${(n / 1000).toFixed(0)}k` : `฿${n}`
+
 // ยอดขายรายวันสำหรับ Lab 2.2 (rows แบบ lab2: มี date, revenue) → [{ date, revenue }] เรียงตามวันที่
 export function dailyRevenue(rows) {
   const map = new Map()
