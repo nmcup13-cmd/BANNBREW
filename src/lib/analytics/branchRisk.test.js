@@ -35,6 +35,12 @@ describe("branchRisk", () => {
     expect(r.branches.map((b) => b.branch)).toEqual(["B", "C", "A", "N"]);
     expect(r.branches.at(-1)).toMatchObject({ isNew: true, rank: null, risk: "ยังประเมินไม่ได้" });
   });
+  it("แยกเหตุผลด้านเสี่ยงกับจุดแข็ง", () => {
+    const [b, , a] = r.branches;
+    expect(b.risks).toContain("โตช้าที่สุด");
+    expect(a.strengths).toContain("โตเร็วที่สุด");
+    expect(b.strengths).not.toContain("โตเร็วที่สุด");
+  });
   it("เลื่อนวันที่กลับด้วย shift ให้ขอบปีตรงปฏิทินจริง", () => {
     const shifted = daily.map((d) => ({ ...d, date: addDays(d.date, 14) }));
     expect(branchRisk(shifted, 14).branches.find((b) => b.branch === "A").curPerDay).toBe(1300);

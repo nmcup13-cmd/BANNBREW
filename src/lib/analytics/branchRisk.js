@@ -69,19 +69,19 @@ export function branchRisk(daily, shift = 0) {
   rated.forEach((b, i) => {
     b.rank = i + 1;
     b.risk = i === 0 ? "สูง" : i === 1 ? "ค่อนข้างสูง" : i === rated.length - 1 ? "ต่ำสุด" : "ต่ำ";
-    const reasons = [];
-    if (b.curPerDay === extreme("curPerDay", Math.min)) reasons.push(`ยอดต่อวันต่ำสุด (${Math.round((b.curPerDay / top) * 100)}% ของสาขาที่ขายดีสุด)`);
-    if (b.curPerDay === top) reasons.push("ยอดต่อวันสูงสุด");
-    if (b.growth === extreme("growth", Math.min)) reasons.push("โตช้าที่สุด");
-    if (b.growth === extreme("growth", Math.max)) reasons.push("โตเร็วที่สุด");
-    if (b.weeklyCv === extreme("weeklyCv", Math.max)) reasons.push("ยอดแกว่งมากที่สุด");
-    if (b.weeklyCv === extreme("weeklyCv", Math.min)) reasons.push("ยอดนิ่งที่สุด");
-    if (b.growth !== null && b.growth < 0) reasons.push("ยอดต่อวันลดลงจากปีก่อน");
-    b.reasons = reasons.length ? reasons : ["อยู่กลางกลุ่มทุกตัวชี้วัด"];
+    const risks = [], strengths = [];
+    if (b.curPerDay === extreme("curPerDay", Math.min)) risks.push(`ยอดต่อวันต่ำสุด (${Math.round((b.curPerDay / top) * 100)}% ของสาขาที่ขายดีสุด)`);
+    if (b.growth === extreme("growth", Math.min)) risks.push("โตช้าที่สุด");
+    if (b.weeklyCv === extreme("weeklyCv", Math.max)) risks.push("ยอดแกว่งมากที่สุด");
+    if (b.growth !== null && b.growth < 0) risks.push("ยอดต่อวันลดลงจากปีก่อน");
+    if (b.curPerDay === top) strengths.push("ยอดต่อวันสูงสุด");
+    if (b.growth === extreme("growth", Math.max)) strengths.push("โตเร็วที่สุด");
+    if (b.weeklyCv === extreme("weeklyCv", Math.min)) strengths.push("ยอดนิ่งที่สุด");
+    b.risks = risks;
+    b.strengths = strengths;
   });
   const fresh = all.filter((b) => b.isNew).map((b) => ({
-    ...b, rank: null, risk: "ยังประเมินไม่ได้",
-    reasons: [`เปิด ${b.firstDate} ข้อมูลไม่ถึง 1 ปี ปี ${prevYear + 543} มีแค่ ${b.prevDays} วัน`],
+    ...b, rank: null, risk: "ยังประเมินไม่ได้", risks: [], strengths: [],
   }));
 
   const prevDates = rows.map((d) => d.date).filter((d) => d.startsWith(String(prevYear))).sort();

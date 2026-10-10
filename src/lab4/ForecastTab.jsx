@@ -147,8 +147,8 @@ function BranchRiskCard({ daily, shift }) {
     <Card title={`สรุปปี ${py} · ถ้าต้องเลิกบางสาขาในปี ${cy} ควรพิจารณาสาขาไหนก่อน`}
           sub={`ปี ${py} มีข้อมูล ${thaiDay(r.prevFrom)} – ${thaiDay(r.prevTo)} · ปี ${cy} ถึง ${thaiDay(r.curTo)} · เทียบด้วยยอดขายต่อวันที่เปิด เพราะแต่ละสาขาเปิดไม่เท่ากัน`}>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[860px] text-sm">
-          <thead className="text-left text-stone-500">
+        <table className="w-full min-w-[920px] text-sm">
+          <thead className="whitespace-nowrap text-left text-stone-500 [&_th]:px-2">
             <tr>
               <th className="py-1 font-medium">อันดับ</th>
               <th className="font-medium">สาขา</th>
@@ -159,12 +159,12 @@ function BranchRiskCard({ daily, shift }) {
               <th className="text-right font-medium">ยอด/วัน {cy}</th>
               <th className="text-right font-medium">เปลี่ยนแปลง</th>
               <th className="text-right font-medium">ยอดแกว่ง*</th>
-              <th className="pl-4 font-medium">เหตุผล</th>
+              <th className="font-medium">เหตุผล</th>
             </tr>
           </thead>
           <tbody>
             {r.branches.map((b) => (
-              <tr key={b.branch} className="border-t border-stone-100 align-top">
+              <tr key={b.branch} className="border-t border-stone-100 align-top [&_td]:px-2">
                 <td className="py-1.5 tabular-nums">{b.rank ?? "–"}</td>
                 <td className="font-medium">{b.branch}</td>
                 <td><span className={`whitespace-nowrap rounded px-2 py-0.5 text-xs ${RISK_STYLE[b.risk]}`}>{b.risk}</span></td>
@@ -174,7 +174,16 @@ function BranchRiskCard({ daily, shift }) {
                 <td className="text-right tabular-nums">{fmtBaht(Math.round(b.curPerDay))}</td>
                 <td className="text-right tabular-nums">{signedPct(b.growth)}</td>
                 <td className="text-right tabular-nums">{(b.weeklyCv * 100).toFixed(1)}%</td>
-                <td className="pl-4 text-stone-600">{b.reasons.join(" · ")}</td>
+                <td className="text-stone-600">
+                  {b.isNew ? `เปิด ${thaiDay(b.firstDate)} ข้อมูลไม่ถึง 1 ปี (ปี ${py} มีแค่ ${b.prevDays} วัน)` : (
+                    <>
+                      {b.risks.length > 0 && <span className="text-red-700">{b.risks.join(" · ")}</span>}
+                      {b.risks.length > 0 && b.strengths.length > 0 && " · "}
+                      {b.strengths.length > 0 && <span className="text-emerald-700">{b.strengths.join(" · ")}</span>}
+                      {!b.risks.length && !b.strengths.length && "อยู่กลางกลุ่มทุกตัวชี้วัด"}
+                    </>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -186,7 +195,8 @@ function BranchRiskCard({ daily, shift }) {
       </p>
       {first && second && (
         <Insight>
-          ถ้าต้องเลิก 1 สาขา ควรพิจารณา <b>{first.branch}</b> ก่อน ({first.reasons.join(", ")}) รองลงมาคือ <b>{second.branch}</b> ({second.reasons.join(", ")}) ·
+          ถ้าต้องเลิก 1 สาขา ควรพิจารณา <b>{first.branch}</b> ก่อน{first.risks.length > 0 && ` (${first.risks.join(", ")})`}
+          {first.strengths.length > 0 && ` แม้จะ${first.strengths.join(" และ")}`} รองลงมาคือ <b>{second.branch}</b>{second.risks.length > 0 && ` (${second.risks.join(", ")})`} ·
           ข้อมูลนี้ไม่มีค่าเช่า ค่าพนักงาน และค่าน้ำไฟ จึงบอกได้แค่สาขาที่ยอดอ่อนที่สุด ไม่ใช่สาขาที่ขาดทุน ก่อนตัดสินจริงให้นำยอด/วันไปเทียบกับต้นทุนต่อวันของแต่ละสาขา
           {rated.every((b) => b.growth > 0) && ` · ทุกสาขายังโตขึ้นจากปี ${py}`}
         </Insight>
