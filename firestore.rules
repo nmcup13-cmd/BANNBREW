@@ -72,6 +72,13 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Lab 4 · ผลวิเคราะห์ที่ pipeline สร้าง (meta, daily, rfm, cohort, abc)
+    // อ่านได้เมื่อล็อกอิน (มีรหัสลูกค้า) · เขียนจากหน้าเว็บไม่ได้ pipeline ใช้ firebase-admin จึงไม่ผ่าน rules
+    match /analytics/{docId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
     // collection อื่นทั้งหมด: ปิด
     match /{document=**} {
       allow read, write: if false;
