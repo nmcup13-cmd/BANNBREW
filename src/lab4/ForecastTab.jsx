@@ -16,7 +16,7 @@ const HORIZON = 28;
 const shortDay = (iso) => new Date(iso + "T00:00:00").toLocaleDateString("th-TH", { day: "numeric", month: "short" });
 const tryRun = (f) => { try { return { value: f() }; } catch (e) { return { error: e.message }; } };
 
-function ForecastCard({ daily }) {
+function ForecastCard({ daily, abc }) {
   const [branch, setBranch] = useState(null);
   const result = useMemo(() => tryRun(() => {
     const series = toSeries(daily, branch);
@@ -30,11 +30,12 @@ function ForecastCard({ daily }) {
     ];
     chart[recent.length - 1] = { ...chart[recent.length - 1], forecast: last.revenue }; // ต่อเส้นให้ไม่ขาด
     const next7 = fc.slice(0, 7).reduce((s, f) => s + f.forecast, 0);
-    return { bt, chart, next7, lastDate: last.date };
+    return { bt, chart, next7, lastDate: last.date, firstForecast: fc[0].date };
   }), [daily, branch]);
 
   const r = result.value;
   return (
+    <>
     <Card title="พยากรณ์ยอดขาย 28 วัน" sub="ค่าเฉลี่ยวันเดียวกันของสัปดาห์ 8 สัปดาห์ล่าสุด · แถบ = ช่วงที่คาดว่าครอบคลุมราว 80% ของวัน"
           right={<div className="flex flex-wrap gap-1">
             {[null, ...BRANCHES].map((b) => (
@@ -70,8 +71,57 @@ function ForecastCard({ daily }) {
               : `${branch ?? "ภาพรวม"}: สองวิธีแม่นพอ ๆ กัน (${r.bt.mapeSeasonal.toFixed(0)}% กับ ${r.bt.mapeFlat.toFixed(0)}%) ${branch ? "" : "เพราะสาขาออฟฟิศกับห้างขายดีคนละวัน พอรวมกันรูปแบบรายสัปดาห์จึงหักล้างกัน"}`}
             {" "}ใช้วางแผนสต็อกและกะพนักงานรายสัปดาห์ได้ แต่ไม่ควรใช้ตัดสินยอดรายวันของสาขาเดียว
           </Insight>
+          <p className="mt-3 text-sm text-stone-500">
+            <span className="font-medium text-stone-600">แถบช่วงคาดการณ์คำนวณจากอะไร:</span> ย้อนทดสอบโดยซ่อน 28 วันล่าสุด
+            พยากรณ์จากข้อมูลก่อนหน้า แล้วดูว่าแต่ละวันพลาดไปกี่ % นำ % ที่พลาดมาหาส่วนเบี่ยงเบนมาตรฐาน แล้วคูณ 1.28
+            ได้ ±{(r.bt.band * 100).toFixed(0)}% รอบเส้นคาดการณ์{branch ? `ของ${branch}` : ""} ถ้าความคลาดเคลื่อนกระจายแบบระฆังคว่ำ
+            ยอดจริงราว 8 ใน 10 วันจะตกในแถบนี้ · แถบกว้าง = สาขานั้นยอดแกว่งมาก คาดการณ์รายวันได้ยาก
+          </p>
         </>
       )}
+    </Card>
+    {r && <PrepCard abc={abc} next7={r.next7} branch={branch} start={r.firstForecast} />}
+    </>
+  );
+}
+
+// Lab 4.4B · ควรเตรียมของเท่าไร: ยอดคาดการณ์ 7 วัน × สัดส่วนยอดขายของเมนูกลุ่ม A
+function PrepCard({ abc, next7, branch, start }) {
+  if (!abc || abc.error) return <Card title="ควรเตรียมของเท่าไร"><Pending lab="Lab 4.2" error={abc?.error ?? "ยังไม่มีผล ABC"} /></Card>;
+  const items = abc.items.filter((i) => i.cls === "A").map((i) => ({ ...i, expected: next7 * i.share }));
+  const totalA = items.reduce((s, i) => s + i.expected, 0);
+  const shareA = items.reduce((s, i) => s + i.share, 0);
+  return (
+    <Card title="ควรเตรียมของเท่าไร · 7 วันข้างหน้า"
+          sub={`${branch ?? "ทุกสาขา"} · เริ่ม ${thaiDay(start)} · ยอดคาดการณ์ ${fmtBaht(next7)} × สัดส่วนยอดขายของเมนูกลุ่ม A ${items.length} เมนู`}>
+      <div className="max-h-80 overflow-y-auto">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 bg-white text-left text-stone-500">
+            <tr><th className="py-1 font-medium">เมนู</th><th className="font-medium">หมวด</th><th className="text-right font-medium">สัดส่วนยอด</th><th className="text-right font-medium">ควรเตรียมขาย (บาท)</th></tr>
+          </thead>
+          <tbody>
+            {items.map((i) => (
+              <tr key={i.product_id} className="border-t border-stone-100">
+                <td className="py-1.5">{i.name}</td>
+                <td className="text-stone-500">{i.category}</td>
+                <td className="text-right tabular-nums">{(i.share * 100).toFixed(1)}%</td>
+                <td className="text-right tabular-nums">{fmtBaht(Math.round(i.expected))}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-stone-200 font-medium">
+              <td className="py-1.5" colSpan={2}>รวมเมนูกลุ่ม A</td>
+              <td className="text-right tabular-nums">{(shareA * 100).toFixed(1)}%</td>
+              <td className="text-right tabular-nums">{fmtBaht(Math.round(totalA))}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <Insight>
+        เมนูกลุ่ม A {items.length} เมนูคาดว่าจะทำยอด {fmtBaht(Math.round(totalA))} ใน 7 วัน เตรียมวัตถุดิบของเมนูเหล่านี้ให้พอก่อนเมนูอื่น ·
+        สัดส่วนเมนูมาจากยอดขายทุกสาขาตลอดช่วงข้อมูล{branch ? " ซึ่งอาจต่างจากเมนูขายดีของสาขานี้" : ""} และยังไม่บวกเผื่อตามแถบช่วงคาดการณ์
+      </Insight>
     </Card>
   );
 }
@@ -144,7 +194,7 @@ export default function ForecastTab({ source }) {
               🚨 ยอดวันล่าสุดผิดปกติ: {d.meta.alerts.map((a) => `${a.branch} ${fmtBaht(a.actual)} (ปกติ ${fmtBaht(a.expected)})`).join(", ")}
             </p>
           )}
-          <ForecastCard daily={d.daily.rows} />
+          <ForecastCard daily={d.daily.rows} abc={d.abc} />
           <AnomalyCard daily={d.daily.rows} holidays={d.meta.holidays ?? {}} />
         </div>
       )}
