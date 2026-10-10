@@ -2,7 +2,7 @@
 // คำนวณในเบราว์เซอร์จาก analytics/daily (ยอดรายวันแยกสาขา ~2,700 แถว) จึงเปลี่ยนสาขาได้ทันทีโดยไม่อ่าน Firestore เพิ่ม
 import { useMemo, useState } from "react";
 import {
-  ResponsiveContainer, ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine,
+  ResponsiveContainer, ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine, ReferenceDot,
 } from "recharts";
 import { AnalyticsShell, Card, Pending, Insight, MAIN, GREEN, MUTED, INK, thaiDay } from "./ui.jsx";
 import { useAnalytics } from "./useAnalytics.js";
@@ -11,6 +11,7 @@ import { seasonalForecast, backtest } from "../lib/analytics/forecast.js";
 import { scoreAnomalies } from "../lib/analytics/anomaly.js";
 import { branchRisk } from "../lib/analytics/branchRisk.js";
 import { fmtBaht, fmtShortBaht } from "../lib/metrics.js";
+import { addDays } from "../lab3/time.js";
 
 const BRANCHES = ["สยาม", "สีลม", "อารีย์", "บางนา", "มหาวิทยาลัย"];
 const HORIZON = 28;
@@ -215,6 +216,49 @@ function Stat({ label, value, note, muted }) {
   );
 }
 
+// Lab 4.5B · ซูมดูยอดจริงเทียบค่าปกติ ±28 วันรอบวันผิดปกติที่เลือก
+const ZOOM_DAYS = 28;
+const DOWN = "#b91c1c", UP = "#d97706";
+
+function AnomalyZoom({ focus, all, onClose }) {
+  const from = addDays(focus.date, -ZOOM_DAYS), to = addDays(focus.date, ZOOM_DAYS);
+  const data = all
+    .filter((a) => a.branch === focus.branch && a.date >= from && a.date <= to)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((a) => ({ date: a.date, actual: a.actual, expected: a.expected }));
+  const color = focus.change < 0 ? DOWN : UP;
+  return (
+    <div className="mb-4 rounded-lg p-3 ring-1 ring-stone-200">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <p className="text-sm">
+          <span className="font-medium">{focus.branch} · {thaiDay(focus.date)}</span>{" "}
+          <span style={{ color }}>
+            {focus.change < 0 ? "▼ ต่ำกว่าปกติ" : "▲ สูงกว่าปกติ"} {Math.round(Math.abs(focus.change) * 100)}%
+          </span>
+          <span className="text-stone-500"> · ยอดจริง {fmtBaht(focus.actual)} ปกติ {fmtBaht(focus.expected)} · แสดง ±{ZOOM_DAYS} วัน</span>
+        </p>
+        <button onClick={onClose} aria-label="ปิดกราฟ"
+                className="rounded-lg px-3 py-1 text-sm text-stone-500 ring-1 ring-stone-300 hover:bg-stone-100">ปิด ✕</button>
+      </div>
+      <div className="mt-2 h-56">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 0 }}>
+            <CartesianGrid vertical={false} stroke="#eee" />
+            <XAxis dataKey="date" tickFormatter={shortDay} minTickGap={28} tick={{ fontSize: 12 }} />
+            <YAxis tickFormatter={fmtShortBaht} width={56} domain={[0, "auto"]} tick={{ fontSize: 12 }} />
+            <Tooltip labelFormatter={thaiDay} formatter={(v, n) => [fmtBaht(v), n]} />
+            <Legend wrapperStyle={{ fontSize: 13 }} />
+            <Line name="ยอดจริง" dataKey="actual" stroke={INK} strokeWidth={2} dot={false} isAnimationActive={false} />
+            <Line name="ค่าปกติ" dataKey="expected" stroke={MAIN} strokeWidth={2} strokeDasharray="6 4" dot={false} isAnimationActive={false} />
+            <ReferenceLine x={focus.date} stroke={color} strokeOpacity={0.4} />
+            <ReferenceDot x={focus.date} y={focus.actual} r={6} fill={color} stroke="#fff" strokeWidth={2} />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 function AnomalyCard({ daily, holidays }) {
   const [focus, setFocus] = useState(null);
   const result = useMemo(() => tryRun(() => scoreAnomalies(daily, holidays)), [daily, holidays]);
@@ -225,7 +269,7 @@ function AnomalyCard({ daily, holidays }) {
   return (
     <Card title="วันที่ยอดขายผิดปกติ 15 อันดับ"
           sub="เทียบกับค่ากลางของวันเดียวกันของสัปดาห์ใน 8 สัปดาห์ก่อน · ไม่นับวันหยุดราชการ">
-      {/* Lab 4.5B: เมื่อคลิกแถว (focus) ให้แสดงกราฟยอดจริงเทียบค่าปกติ ±4 สัปดาห์รอบวันนั้น */}
+      {focus && <AnomalyZoom focus={focus} all={all} onClose={() => setFocus(null)} />}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[600px] text-sm tabular-nums">
           <thead className="text-left text-stone-500">
