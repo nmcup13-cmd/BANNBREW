@@ -154,7 +154,12 @@ function AbcCard({ abc }) {
 // ---------------- Lab 4.1B · รายชื่อลูกค้าในกลุ่มที่เลือก ----------------
 const CSV_COLUMNS = ["id", "segment", "R", "F", "M", "r", "f", "m"];
 
+// รหัสสมาชิก + พฤติกรรมการซื้อ ระบุตัวบุคคลได้ = ข้อมูลส่วนบุคคลตาม พ.ร.บ.คุ้มครองข้อมูลส่วนบุคคล (PDPA)
+const PDPA_NOTICE =
+  "ข้อมูลนี้เป็นข้อมูลส่วนบุคคลของลูกค้า (PDPA) ใช้เพื่อดูแลลูกค้าของร้านเท่านั้น ห้ามส่งต่อหรือเผยแพร่ เก็บไฟล์ในที่ปลอดภัย และลบเมื่อใช้งานเสร็จ";
+
 function downloadCsv(segment, members) {
+  if (!window.confirm(`${PDPA_NOTICE}\n\nยืนยันดาวน์โหลดรายชื่อ ${members.length.toLocaleString()} คน?`)) return;
   const lines = [CSV_COLUMNS.join(","), ...members.map((c) => CSV_COLUMNS.map((k) => c[k]).join(","))];
   // BOM (U+FEFF) นำหน้า ให้ Excel รู้ว่าเป็น UTF-8 และแสดงภาษาไทยได้
   const blob = new Blob([String.fromCharCode(0xfeff) + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
@@ -185,6 +190,7 @@ function SegmentCustomers({ rfm, segment, onClose }) {
         </div>
       }
     >
+      <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200">🔒 {PDPA_NOTICE}</p>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[480px] text-sm">
           <thead className="text-left text-stone-500">
