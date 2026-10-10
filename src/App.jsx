@@ -13,6 +13,21 @@ import LiveTab from './lab3/LiveTab.jsx'
 import RulesTester from './lab3/RulesTester.jsx'
 import SetupGuide from './lab3/SetupGuide.jsx'
 import { isConfigured } from './lab3/firebase.js'
+import { firestoreSource, createDemoSource } from './lab3/dataSource.js'
+import CustomersTab from './lab4/CustomersTab.jsx'
+import ForecastTab from './lab4/ForecastTab.jsx'
+import { prepareRows } from './lib/metrics'
+
+// ?demo = โหมดสาธิตของ Lab 4: คำนวณผลวิเคราะห์ในเบราว์เซอร์จาก public/*.csv ไม่ต้องใช้ Firebase
+const DEMO = new URLSearchParams(location.search).has('demo')
+
+const loadCsv = (url) =>
+  fetch(url)
+    .then((res) => {
+      if (!res.ok) throw new Error(`โหลด ${url} ไม่สำเร็จ (HTTP ${res.status})`)
+      return res.text()
+    })
+    .then((csv) => Papa.parse(csv.replace(/^﻿/, ''), { header: true, skipEmptyLines: true }).data)
 
 export default function App() {
   const [rows, setRows] = useState([])
@@ -20,8 +35,10 @@ export default function App() {
   const [fileName, setFileName] = useState('')
   const [loading, setLoading] = useState(false)
   const [branch, setBranch] = useState('all') // 'all' = ทุกสาขา
-  const [view, setView] = useState('dashboard') // 'dashboard' | 'customers' | 'lab2' | 'customerLab' | 'live' | 'rules'
+  const [view, setView] = useState('dashboard') // 'dashboard' | 'customers' | 'lab2' | 'customerLab' | 'live' | 'rfm' | 'forecast' | 'rules'
   const [products, setProducts] = useState([])
+  const [demoSource, setDemoSource] = useState(null)
+  const [demoError, setDemoError] = useState(null)
 
   // รายชื่อเมนู (product_id → product_name) จาก public/products.csv ใช้ในหน้า Lab 2.2
   useEffect(() => {
@@ -30,6 +47,20 @@ export default function App() {
       .then((csv) => setProducts(Papa.parse(csv, { header: true, skipEmptyLines: true }).data))
       .catch(() => setProducts([]))
   }, [])
+
+  // Lab 4 · โหมดสาธิต: โหลดประวัติ 18 เดือนจาก CSV แล้วสร้าง data source จำลอง
+  useEffect(() => {
+    if (!DEMO) return
+    Promise.all([loadCsv('/sales.csv'), loadCsv('/products.csv'), loadCsv('/thai_holidays.csv').catch(() => [])])
+      .then(([sales, prods, hol]) => {
+        const holidays = Object.fromEntries(hol.map((h) => [h.date, h.holiday]))
+        setDemoSource(createDemoSource(prepareRows(sales), prods, holidays))
+      })
+      .catch((e) => setDemoError(e.message ?? String(e)))
+  }, [])
+
+  // แท็บ Lab 4 อ่านผลวิเคราะห์ผ่าน source เดียวกัน (Firestore จริง หรือโหมดสาธิต)
+  const analyticsSource = DEMO ? demoSource : isConfigured ? firestoreSource : null
 
   // ภาพรวมทุกสาขา + รายชื่อสาขาสำหรับ dropdown
   const allMetrics = useMemo(() => computeMetrics(rows), [rows])
@@ -95,7 +126,7 @@ export default function App() {
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-3 text-sm">
             <nav className="flex flex-wrap rounded-lg border border-stone-300 p-0.5">
-              {[['dashboard', 'Dashboard'], ['customers', 'ลูกค้า'], ['lab2', 'Lab 2.2'], ['customerLab', 'Lab ลูกค้า'], ['live', 'สด · Firestore'], ['rules', 'ทดสอบ Rules']].map(([key, label]) => (
+              {[['dashboard', 'Dashboard'], ['customers', 'ลูกค้า'], ['lab2', 'Lab 2.2'], ['customerLab', 'Lab ลูกค้า'], ['live', 'สด · Firestore'], ['rfm', 'ลูกค้า & เมนู'], ['forecast', 'พยากรณ์ & ผิดปกติ'], ['rules', 'ทดสอบ Rules']].map(([key, label]) => (
                 <button
                   key={key}
                   onClick={() => setView(key)}
@@ -122,6 +153,15 @@ export default function App() {
         {view === 'customerLab' && <CustomerLabPage />}
         {view === 'live' && (isConfigured ? <LiveTab /> : <SetupGuide />)}
         {view === 'rules' && (isConfigured ? <RulesTester /> : <SetupGuide />)}
+        {(view === 'rfm' || view === 'forecast') && (
+          analyticsSource ? (
+            view === 'rfm' ? <CustomersTab source={analyticsSource} /> : <ForecastTab source={analyticsSource} />
+          ) : DEMO ? (
+            <p className={demoError ? 'text-red-700' : 'text-stone-500'}>
+              {demoError ? `โหลดข้อมูลสาธิตไม่สำเร็จ: ${demoError}` : 'กำลังโหลดข้อมูลสาธิต…'}
+            </p>
+          ) : <SetupGuide />
+        )}
 
         {(view === 'dashboard' || view === 'lab2') && rows.length === 0 && (
           <UploadZone onFile={(f) => load(f, f.name)} onSample={loadSample} loading={loading} />
