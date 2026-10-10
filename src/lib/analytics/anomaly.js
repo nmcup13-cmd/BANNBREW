@@ -19,7 +19,40 @@ export const median = (xs) => {
  *   { date, branch, actual, expected, change (สัดส่วน เช่น -0.9 = ต่ำกว่าปกติ 90%), score, holiday }
  */
 export function scoreAnomalies(daily, holidays = {}, { weeks = 8, minWeeks = 4, smooth = 1000 } = {}) {
-  throw new Error("ยังไม่ได้ทำ: scoreAnomalies");
+  // ยอดรายวันแยกสาขา: Map(สาขา → Map(วันที่ → ยอด)) และช่วงวันที่ของแต่ละสาขา
+  const byBranch = new Map();
+  for (const d of daily) {
+    let b = byBranch.get(d.branch);
+    if (!b) byBranch.set(d.branch, (b = { sums: new Map(), first: d.date, last: d.date }));
+    b.sums.set(d.date, (b.sums.get(d.date) ?? 0) + d.revenue);
+    if (d.date < b.first) b.first = d.date;
+    if (d.date > b.last) b.last = d.date;
+  }
+
+  const out = [];
+  for (const [branch, { sums, first, last }] of byBranch) {
+    // วันที่ไม่มีแถวในช่วงที่สาขาเปิด = ขายไม่ได้เลย (เช่น ไฟดับทั้งวัน) จึงนับเป็น 0
+    const revenueOn = (date) => sums.get(date) ?? 0;
+    for (let date = first; date <= last; date = addDays(date, 1)) {
+      // วันเดียวกันของสัปดาห์ย้อนหลัง 1..weeks สัปดาห์ เฉพาะที่อยู่ในช่วงที่สาขาเปิดแล้ว
+      const past = [];
+      for (let k = 1; k <= weeks; k++) {
+        const prev = addDays(date, -7 * k);
+        if (prev < first) break;
+        past.push(revenueOn(prev));
+      }
+      if (past.length < minWeeks) continue;
+      const actual = revenueOn(date);
+      const expected = median(past);
+      out.push({
+        date, branch, actual, expected,
+        change: expected ? actual / expected - 1 : null,
+        score: Math.log((actual + smooth) / (expected + smooth)),
+        holiday: holidays[date] ?? null,
+      });
+    }
+  }
+  return out.sort((x, y) => Math.abs(y.score) - Math.abs(x.score) || x.date.localeCompare(y.date) || x.branch.localeCompare(y.branch));
 }
 
 /** อันดับวันผิดปกติที่ควรตรวจสอบ (ไม่รวมวันหยุด) */
