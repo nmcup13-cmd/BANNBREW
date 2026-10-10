@@ -1,6 +1,6 @@
 # บ้านบรู Dashboard
 
-🌐 **เว็บจริง: https://bannbrew.vercel.app** · ดูแบบไม่ต้องล็อกอิน: https://bannbrew.vercel.app/?demo
+🌐 **เว็บจริง: https://bannbrew.vercel.app** · ดูแบบไม่ต้องล็อกอิน: https://bannbrew.vercel.app/?demo · สำรองบน Firebase: https://bann-abf3f.web.app
 
 Dashboard ยอดขายร้านกาแฟบ้านบรู 5 สาขา สร้างด้วย React + Vite + Tailwind + Recharts และ Firebase (Firestore, Authentication) ขึ้นเว็บด้วย Vercel ซึ่ง deploy ใหม่อัตโนมัติทุกครั้งที่ merge เข้า `main`
 
@@ -55,6 +55,10 @@ npm run analytics       # Lab 4: เขียนผลวิเคราะห�
 - **ผลวิเคราะห์:** GitHub Actions รัน `scripts/build-analytics.mjs` ทุกวัน 06:15 น. (ใช้ secret `FIREBASE_SERVICE_ACCOUNT_JSON`) หรือกด **Actions → Build analytics → Run workflow**
 - **Security Rules:** `firebase deploy --only firestore:rules`
 
-> https://bann-abf3f.web.app คือเว็บเวอร์ชัน Day 3 ที่เคยขึ้นด้วย Firebase Hosting ไม่ได้อัปเดตตาม `main` แล้ว
+- **เว็บสำรองบน Firebase Hosting** (https://bann-abf3f.web.app): ไม่อัปเดตเอง ต้อง deploy ทุกครั้งหลัง merge
+  ```bash
+  npm run build
+  firebase deploy --only hosting
+  ```
 
 > ⚠️ ห้าม commit `.env`, โฟลเดอร์ `secrets/` หรือไฟล์ service account key (กันไว้ใน `.gitignore` แล้ว)
