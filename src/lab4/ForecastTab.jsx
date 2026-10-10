@@ -9,6 +9,7 @@ import { useAnalytics } from "./useAnalytics.js";
 import { toSeries } from "../lib/analytics/daily.js";
 import { seasonalForecast, backtest } from "../lib/analytics/forecast.js";
 import { scoreAnomalies } from "../lib/analytics/anomaly.js";
+import { branchRisk } from "../lib/analytics/branchRisk.js";
 import { fmtBaht, fmtShortBaht } from "../lib/metrics.js";
 
 const BRANCHES = ["สยาม", "สีลม", "อารีย์", "บางนา", "มหาวิทยาลัย"];
@@ -126,6 +127,74 @@ function PrepCard({ abc, next7, branch, start }) {
   );
 }
 
+// Lab 4.4B (ขยายเอง) · สรุปปีก่อนรายสาขา และอันดับความเสี่ยงถ้าต้องเลิกบางสาขาในปีถัดไป
+const RISK_STYLE = {
+  "สูง": "bg-red-100 text-red-800", "ค่อนข้างสูง": "bg-amber-100 text-amber-800",
+  "ต่ำ": "bg-emerald-50 text-emerald-800", "ต่ำสุด": "bg-emerald-100 text-emerald-900",
+  "ยังประเมินไม่ได้": "bg-stone-100 text-stone-600",
+};
+const thaiYear = (y) => y + 543;
+const signedPct = (x) => (x == null ? "–" : `${x >= 0 ? "+" : ""}${(x * 100).toFixed(1)}%`);
+
+function BranchRiskCard({ daily, shift }) {
+  const result = useMemo(() => tryRun(() => branchRisk(daily, shift)), [daily, shift]);
+  if (result.error) return <Card title="สรุปรายปี · ความเสี่ยงรายสาขา"><Pending lab="Lab 4.4" error={result.error} /></Card>;
+  const r = result.value;
+  const py = thaiYear(r.prevYear), cy = thaiYear(r.curYear);
+  const rated = r.branches.filter((b) => b.rank);
+  const [first, second] = rated;
+  return (
+    <Card title={`สรุปปี ${py} · ถ้าต้องเลิกบางสาขาในปี ${cy} ควรพิจารณาสาขาไหนก่อน`}
+          sub={`ปี ${py} มีข้อมูล ${thaiDay(r.prevFrom)} – ${thaiDay(r.prevTo)} · ปี ${cy} ถึง ${thaiDay(r.curTo)} · เทียบด้วยยอดขายต่อวันที่เปิด เพราะแต่ละสาขาเปิดไม่เท่ากัน`}>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[860px] text-sm">
+          <thead className="text-left text-stone-500">
+            <tr>
+              <th className="py-1 font-medium">อันดับ</th>
+              <th className="font-medium">สาขา</th>
+              <th className="font-medium">ความเสี่ยง</th>
+              <th className="text-right font-medium">ยอดปี {py}</th>
+              <th className="text-right font-medium">สัดส่วน</th>
+              <th className="text-right font-medium">ยอด/วัน {py}</th>
+              <th className="text-right font-medium">ยอด/วัน {cy}</th>
+              <th className="text-right font-medium">เปลี่ยนแปลง</th>
+              <th className="text-right font-medium">ยอดแกว่ง*</th>
+              <th className="pl-4 font-medium">เหตุผล</th>
+            </tr>
+          </thead>
+          <tbody>
+            {r.branches.map((b) => (
+              <tr key={b.branch} className="border-t border-stone-100 align-top">
+                <td className="py-1.5 tabular-nums">{b.rank ?? "–"}</td>
+                <td className="font-medium">{b.branch}</td>
+                <td><span className={`whitespace-nowrap rounded px-2 py-0.5 text-xs ${RISK_STYLE[b.risk]}`}>{b.risk}</span></td>
+                <td className="text-right tabular-nums">{fmtBaht(b.prevRevenue)}</td>
+                <td className="text-right tabular-nums">{(b.prevShare * 100).toFixed(1)}%</td>
+                <td className="text-right tabular-nums">{fmtBaht(Math.round(b.prevPerDay))}</td>
+                <td className="text-right tabular-nums">{fmtBaht(Math.round(b.curPerDay))}</td>
+                <td className="text-right tabular-nums">{signedPct(b.growth)}</td>
+                <td className="text-right tabular-nums">{(b.weeklyCv * 100).toFixed(1)}%</td>
+                <td className="pl-4 text-stone-600">{b.reasons.join(" · ")}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-2 text-xs text-stone-500">
+        * ยอดแกว่ง = ส่วนเบี่ยงเบนมาตรฐานของยอดรายสัปดาห์ปี {cy} ÷ ค่าเฉลี่ย · อันดับมาจากการรวมอันดับ 3 ตัวชี้วัด: ยอด/วันปี {cy} (ต่ำ = เสี่ยง),
+        การเปลี่ยนแปลงของยอด/วัน (โตช้า = เสี่ยง) และยอดแกว่ง (มาก = เสี่ยง) · สาขาที่เปิดไม่ถึง 1 ปีไม่จัดอันดับ
+      </p>
+      {first && second && (
+        <Insight>
+          ถ้าต้องเลิก 1 สาขา ควรพิจารณา <b>{first.branch}</b> ก่อน ({first.reasons.join(", ")}) รองลงมาคือ <b>{second.branch}</b> ({second.reasons.join(", ")}) ·
+          ข้อมูลนี้ไม่มีค่าเช่า ค่าพนักงาน และค่าน้ำไฟ จึงบอกได้แค่สาขาที่ยอดอ่อนที่สุด ไม่ใช่สาขาที่ขาดทุน ก่อนตัดสินจริงให้นำยอด/วันไปเทียบกับต้นทุนต่อวันของแต่ละสาขา
+          {rated.every((b) => b.growth > 0) && ` · ทุกสาขายังโตขึ้นจากปี ${py}`}
+        </Insight>
+      )}
+    </Card>
+  );
+}
+
 function Stat({ label, value, note, muted }) {
   return (
     <div className="rounded-lg bg-stone-50 p-3">
@@ -195,6 +264,7 @@ export default function ForecastTab({ source }) {
             </p>
           )}
           <ForecastCard daily={d.daily.rows} abc={d.abc} />
+          <BranchRiskCard daily={d.daily.rows} shift={d.meta.shift ?? 0} />
           <AnomalyCard daily={d.daily.rows} holidays={d.meta.holidays ?? {}} />
         </div>
       )}
