@@ -18,6 +18,8 @@ Dashboard ยอดขายร้านกาแฟบ้านบรู 5 ส�
 
 ## งานแต่ละ Lab
 
+📘 คู่มือทบทวน Day 4 (แนวคิด ตัวเลขจริง คำสั่ง ปัญหาที่เจอ): [`DAY4_REVIEW.md`](DAY4_REVIEW.md)
+
 - **Lab 2.2 · ซ่อมกราฟแย่:** `src/lab2/FixedCharts.jsx` และใบงาน [`LAB2_WORKSHEET.md`](LAB2_WORKSHEET.md)
 - **Lab 3.1 · นำข้อมูลเข้า Firestore:** `scripts/seedTransform.mjs` (ข้อมูล 90 วันล่าสุด 9,704 เอกสาร)
 - **Lab 3.2 · Dashboard real-time และฟอร์ม:** `src/lab3/saleModel.js`, `src/lab3/LiveTab.jsx`, `src/lab3/SaleForm.jsx`
