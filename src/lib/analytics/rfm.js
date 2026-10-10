@@ -8,12 +8,28 @@ import { daysBetween } from "../../lab3/time.js";
  * ค่าที่เท่ากันต้องได้คะแนนเท่ากันเสมอ: score = 1 + floor(5 × จำนวนค่าที่ "น้อยกว่า" / n)
  */
 export function percentileScores(values) {
-  throw new Error("ยังไม่ได้ทำ: percentileScores");
+  const n = values.length;
+  const sorted = [...values].sort((a, b) => a - b);
+  // นับ "จำนวนค่าที่น้อยกว่า" ด้วย binary search หาตำแหน่งแรกที่ >= v · ค่าเท่ากันจึงได้ตำแหน่งเดียวกันเสมอ
+  const countLess = (v) => {
+    let lo = 0, hi = n;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (sorted[mid] < v) lo = mid + 1; else hi = mid;
+    }
+    return lo;
+  };
+  return values.map((v) => 1 + Math.floor((5 * countLess(v)) / n));
 }
 
 /** กติกาตั้งชื่อกลุ่ม ตรวจจากบนลงล่าง ข้อแรกที่ตรงคือคำตอบ */
 export function segmentOf(r, f) {
-  throw new Error("ยังไม่ได้ทำ: segmentOf");
+  if (r >= 4 && f >= 4) return "Champions";
+  if (r >= 3 && f >= 4) return "Loyal";
+  if (r >= 4 && f <= 2) return "New";
+  if (r <= 2 && f >= 3) return "At Risk";
+  if (r <= 2) return "Lost";
+  return "Need Attention";
 }
 
 export const SEGMENTS = [
@@ -33,5 +49,36 @@ export const SEGMENTS = [
  *   segments:  { segment, customers, revenue, revenueShare, customerShare } เรียงตาม SEGMENTS
  */
 export function computeRfm(rows, asOf) {
-  throw new Error("ยังไม่ได้ทำ: computeRfm");
+  // รวมต่อลูกค้า: วันล่าสุดที่มา, เลขบิลไม่ซ้ำ (1 บิลมีหลายแถว), ยอดรวม · walk-in (customer_id ว่าง) ไม่นับ
+  const byCustomer = new Map();
+  for (const row of rows) {
+    if (!row.customer_id) continue;
+    let c = byCustomer.get(row.customer_id);
+    if (!c) byCustomer.set(row.customer_id, (c = { id: row.customer_id, last: row.date, orders: new Set(), M: 0 }));
+    if (row.date > c.last) c.last = row.date;
+    c.orders.add(row.order_id);
+    c.M += row.revenue;
+  }
+
+  const base = [...byCustomer.values()].map((c) => ({ id: c.id, R: daysBetween(c.last, asOf), F: c.orders.size, M: c.M }));
+  // R น้อย = มาล่าสุด = ดี จึงให้คะแนนจาก -R ให้ค่ามากได้คะแนนสูงเหมือน F และ M
+  const rs = percentileScores(base.map((c) => -c.R));
+  const fs = percentileScores(base.map((c) => c.F));
+  const ms = percentileScores(base.map((c) => c.M));
+  const customers = base.map((c, i) => ({ ...c, r: rs[i], f: fs[i], m: ms[i], segment: segmentOf(rs[i], fs[i]) }));
+
+  const totalRevenue = customers.reduce((sum, c) => sum + c.M, 0);
+  const segments = SEGMENTS.map(({ id }) => {
+    const members = customers.filter((c) => c.segment === id);
+    const revenue = members.reduce((sum, c) => sum + c.M, 0);
+    return {
+      segment: id,
+      customers: members.length,
+      revenue,
+      revenueShare: totalRevenue ? revenue / totalRevenue : 0,
+      customerShare: customers.length ? members.length / customers.length : 0,
+    };
+  });
+
+  return { customers, segments, asOf };
 }
