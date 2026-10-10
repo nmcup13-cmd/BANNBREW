@@ -156,8 +156,8 @@ const CSV_COLUMNS = ["id", "segment", "R", "F", "M", "r", "f", "m"];
 
 function downloadCsv(segment, members) {
   const lines = [CSV_COLUMNS.join(","), ...members.map((c) => CSV_COLUMNS.map((k) => c[k]).join(","))];
-  // BOM (﻿) นำหน้า ให้ Excel รู้ว่าเป็น UTF-8 และแสดงภาษาไทยได้
-  const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+  // BOM (U+FEFF) นำหน้า ให้ Excel รู้ว่าเป็น UTF-8 และแสดงภาษาไทยได้
+  const blob = new Blob([String.fromCharCode(0xfeff) + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = Object.assign(document.createElement("a"), { href: url, download: `rfm-${segment.replace(/\s+/g, "-")}.csv` });
   a.click();
