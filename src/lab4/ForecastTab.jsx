@@ -265,7 +265,13 @@ function AnomalyCard({ daily, holidays }) {
   if (result.error) return <Card title="วันที่ยอดขายผิดปกติ"><Pending lab="Lab 4.5" error={result.error} /></Card>;
   const all = result.value;
   const top = all.filter((a) => !a.holiday).slice(0, 15);
-  const holidayHits = all.filter((a) => a.holiday).slice(0, 5);
+  // วันหยุดที่ยอดเปลี่ยนมาก รวมวันหยุดเดียวกันของสาขาเดียวกัน (เช่น สงกรานต์หลายวัน) เป็นรายการเดียว
+  const holidayHits = [];
+  for (const a of all.filter((x) => x.holiday)) {
+    const hit = holidayHits.find((h) => h.holiday === a.holiday && h.branch === a.branch);
+    if (hit) hit.days += 1;
+    else if (holidayHits.length < 3) holidayHits.push({ holiday: a.holiday, branch: a.branch, days: 1 });
+  }
   return (
     <Card title="วันที่ยอดขายผิดปกติ 15 อันดับ"
           sub="เทียบกับค่ากลางของวันเดียวกันของสัปดาห์ใน 8 สัปดาห์ก่อน · ไม่นับวันหยุดราชการ">
@@ -300,7 +306,7 @@ function AnomalyCard({ daily, holidays }) {
       </div>
       <Insight>
         อันดับต้น ๆ คือวันที่ควรโทรถามผู้จัดการสาขาว่าเกิดอะไรขึ้น · ระบบบอกได้ว่า “ผิดปกติ” แต่บอกไม่ได้ว่า “เพราะอะไร”
-        {holidayHits.length > 0 && <> · วันหยุดที่ยอดเปลี่ยนมากแต่ไม่นับ เช่น {holidayHits.slice(0, 3).map((h) => `${h.holiday} (${h.branch})`).join(", ")}</>}
+        {holidayHits.length > 0 && <> · วันหยุดที่ยอดเปลี่ยนมากแต่ไม่นับ เช่น {holidayHits.map((h) => `${h.holiday} (${h.branch}${h.days > 1 ? ` ${h.days} วัน` : ""})`).join(", ")}</>}
       </Insight>
     </Card>
   );

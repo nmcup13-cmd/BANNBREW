@@ -6,6 +6,6 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   test: {
-    exclude: [...configDefaults.exclude, 'lab3-student-pack/**', 'lab4-student-pack/**','BANNBREW/**'],
+    exclude: [...configDefaults.exclude, 'lab4-student-pack/**', 'BANNBREW/**'],
   },
 })
