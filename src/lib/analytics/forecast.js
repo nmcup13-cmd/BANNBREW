@@ -6,7 +6,18 @@ const dow = (ymd) => new Date(ymd + "T00:00:00Z").getUTCDay(); // 0 = อาท�
 
 /** ค่าเฉลี่ยยอดขายวันเดียวกันของสัปดาห์ K ครั้งล่าสุด (ฤดูกาลรายสัปดาห์) */
 export function seasonalForecast(series, horizon, K = 8) {
-  throw new Error("ยังไม่ได้ทำ: seasonalForecast");
+  // ยอดของแต่ละวันในสัปดาห์ (0–6) เรียงจากเก่าไปใหม่ แล้วเฉลี่ย K ครั้งล่าสุด
+  const byDow = Array.from({ length: 7 }, () => []);
+  for (const s of series) byDow[dow(s.date)].push(s.revenue);
+  const avg = byDow.map((v) => {
+    const recent = v.slice(-K);
+    return recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length : 0;
+  });
+  const last = series[series.length - 1].date;
+  return Array.from({ length: horizon }, (_, i) => {
+    const date = addDays(last, i + 1);
+    return { date, forecast: avg[dow(date)] };
+  });
 }
 
 /** ค่าเฉลี่ย K วันล่าสุด เส้นตรง (ตัวเปรียบเทียบที่ไม่สนวันในสัปดาห์) */
@@ -19,7 +30,13 @@ export function flatForecast(series, horizon, K = 28) {
 
 /** Mean Absolute Percentage Error (%) · ข้ามวันที่ยอดจริงเป็น 0 เพราะหารไม่ได้ */
 export function mape(actual, forecast) {
-  throw new Error("ยังไม่ได้ทำ: mape");
+  let sum = 0, n = 0;
+  actual.forEach((a, i) => {
+    if (a === 0) return;
+    sum += Math.abs(a - forecast[i]) / Math.abs(a);
+    n += 1;
+  });
+  return n ? (sum / n) * 100 : 0;
 }
 
 /**
@@ -27,5 +44,22 @@ export function mape(actual, forecast) {
  * band = ±1.28 × ส่วนเบี่ยงเบนมาตรฐานของ % ความคลาดเคลื่อน (ช่วงประมาณ 80%)
  */
 export function backtest(series, horizon = 28, K = 8) {
-  throw new Error("ยังไม่ได้ทำ: backtest");
+  const train = series.slice(0, -horizon);
+  const hidden = series.slice(-horizon);
+  const seasonal = seasonalForecast(train, horizon, K);
+  const flat = flatForecast(train, horizon);
+  const test = hidden.map((h, i) => ({ date: h.date, actual: h.revenue, seasonal: seasonal[i].forecast, flat: flat[i].forecast }));
+
+  const actual = test.map((t) => t.actual);
+  // ความคลาดเคลื่อนเป็นสัดส่วน (มีเครื่องหมาย) ของวิธีดูวันในสัปดาห์ · ข้ามวันที่ยอดจริงเป็น 0
+  const errors = test.filter((t) => t.actual !== 0).map((t) => (t.actual - t.seasonal) / t.actual);
+  const mean = errors.length ? errors.reduce((a, b) => a + b, 0) / errors.length : 0;
+  const sd = errors.length ? Math.sqrt(errors.reduce((a, e) => a + (e - mean) ** 2, 0) / errors.length) : 0;
+
+  return {
+    test,
+    mapeSeasonal: mape(actual, test.map((t) => t.seasonal)),
+    mapeFlat: mape(actual, test.map((t) => t.flat)),
+    band: 1.28 * sd, // สัดส่วน เช่น 0.2 = ±20% รอบค่าคาดการณ์
+  };
 }
